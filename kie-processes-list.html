@@ -1,0 +1,269 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-menu-button/paper-menu-button.html">
+<link rel="import" href="../neon-animation/web-animations.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../iron-icons/iron-icons.html">
+<link rel="import" href="../iron-collapse/iron-collapse.html">
+<link rel="import" href="../app-layout/app-toolbar/app-toolbar.html">
+<link rel="import" href="../kie-server-execute/kie-server-execute.html">
+
+
+<dom-module id="kie-processes-list">
+  <template>
+    <style>
+      :host {
+        display: block;
+        font-family: Roboto, Noto, sans-serif;
+      }
+
+      #processTable {
+          border: 1px solid e6e6e6;
+      }
+
+      app-toolbar {
+        box-shadow: 0px 2px 3px 0px #000000;
+        background-color: #a6a6a6;
+        color: white;
+        padding: 0 0 0 16;
+      }
+
+      iron-list {
+        margin-top: 5px;
+      }
+
+      .col {
+          width: 25%;
+          padding-left: 3px;
+      }
+
+      .col_item {
+          display: inline-block;
+          padding: 10px 20px 0 10px;
+      }
+
+      .row {
+          text-align:justify;
+          height: 100px;
+      }
+
+      .row:after {
+          display: inline-block;
+          width: 100%;
+          content: "";
+      }
+
+      .item_desc {
+        font-size: 15px;
+        color: #656565;
+      }
+
+      .item_val {
+          font-size: 23px;
+          margin: 15px 0 0 0;
+      }
+      
+      .wrapper {
+         border: 1px outset #e6e6e6;
+          margin-bottom: 5px;
+      }
+
+      .detail_info {
+          padding: 0 30px 5px 10px;
+          display: inline-block;
+      }
+
+    </style>
+    <kie-server-execute
+      id="getProcessDefinitions"
+      op="queries/processes/definitions"
+      username="spahuta"
+      password="qwe-rty123"
+      on-kieresponse="_setUpData">
+    </kie-server-execute>
+    <kie-server-execute
+      id="getProcessInstances"
+      op="queries/processes/instances"
+      username="spahuta"
+      password="qwe-rty123"
+      on-kieresponse="_setUpData">
+    </kie-server-execute>
+
+    <app-toolbar>
+        <paper-menu-button>
+            <paper-icon-button icon="menu" slot="dropdown-trigger"></paper-icon-button>
+            <paper-listbox slot="dropdown-content">
+                <paper-item class="menu_item">Sort</paper-item>
+                <paper-item class="menu_item">Refresh</paper-item>
+            </paper-listbox>
+        </paper-menu-button>
+        <div main-title>List of process [[listOf]]</div>        
+        <paper-icon-button icon="refresh"></paper-icon-button>
+        <paper-icon-button icon="search"></paper-icon-button>
+    </app-toolbar>
+
+    <!--<iron-list items="[[processData]]">-->
+        <template is="dom-repeat" items="[[processData]]">
+            <div class="wrapper">
+                <div class="row">
+
+                    <span class="col_item">
+                        <div class="item_desc">
+                            Process Name
+                        </div>
+                        <div class="item_val">
+                            [[item.process-name]]                            
+                        </div>
+                    </span>
+
+                    <span class="col_item">
+                        <div class="item_desc">
+                            Process Id
+                        </div>
+                        <div class="item_val">
+                            <template is="dom-if" if="[[_listOf()]]">
+                                [[item.process-id]]
+                            </template>
+                            <template is="dom-if" if="[[!_listOf()]]">
+                                [[item.process-instance-id]]
+                            </template>
+                        </div>
+                    </span>
+
+                    <span class="col_item">
+                        <div class="item_desc">
+                            Process Container Id
+                        </div>             
+                        <div class="item_val">           
+                            [[item.container-id]]
+                        </div>
+                    </span>
+                    <template is="dom-if" if="[[_listOf()]]">
+                        <span class="col_item">
+                            <div class="item_desc">
+                                Version
+                            </div>
+                            <div class="item_val">                        
+                                [[item.process-version]]
+                            </div>
+                        </span>
+                    </template>
+                    <template is="dom-if" if="[[!_listOf()]]">
+                        <span class="col_item">
+                            <div class="item_desc">
+                                Definition Id
+                            </div>
+                            <div class="item_val">                        
+                                [[item.process-id]]
+                            </div>
+                        </span>
+                        <span class="col_item">
+                            <div class="item_desc">
+                                Details
+                            </div>
+                            <div class="item_val">                        
+                                <paper-icon-button icon="menu"  data-index$="[[index]]" on-click="_toggleInfo"></paper-icon-button>
+                            </div>
+                        </span>
+                    </template>
+                </div>
+             
+                <iron-collapse id$="collapse[[index]]">
+                    <div class="detail_info">
+                        <span class="item_desc">Initiator:</span>
+                        <span>[[item.initiator]]</span>
+                    </div>
+                    <div class="detail_info">
+                        <span class="item_desc">Version:</span>
+                        <span>[[item.process-version]]</span>
+                    </div>
+                    <div class="detail_info">
+                        <span class="item_desc">Process Variables:</span>
+                        <span>[[item.process-variables]]</span>
+                    </div>
+                </iron-collapse>
+            </div>
+        </template>
+    <!--</iron-list>-->
+  </template>
+
+  <script>
+    class KieProcessesList extends Polymer.Element {
+        static get is() { return 'kie-processes-list'; }
+
+        static get properties() {
+            return {
+                listOf: {
+                    type: String,
+                    value: 'definitions'
+                },
+                getProcessUrl: {
+                    type: String
+                },
+                getProcessVariablesUrl: {
+                    type: String
+                },
+                user: {
+                    type: Object
+                },
+                initiator: {
+                    type: String
+                },
+                pageSize: {
+                    type: Number,
+                    value: 10
+                },
+                status: {
+                    type: String,
+                    value: "all" // all, active, completed, aborted
+                },
+                autoRefresh: {
+                    type: Boolean,
+                    value: false
+                },
+                processData: {
+                    type: Array
+                },
+                dataSource: {
+                    type: Object
+                    //computed: '_setDataSource(processData)',
+                }
+            }
+        }
+
+        ready() {
+            super.ready();
+
+            this._getProcessesData();
+        }
+
+        _getProcessesData() {
+            if (this.listOf === 'definitions')
+                this.$.getProcessDefinitions.execute()
+            else
+                this.$.getProcessInstances.execute();
+        }
+
+        _setUpData(kieresponse) {
+            if (this.listOf === 'definitions') this.processData = kieresponse.detail.processes
+            else this.processData = kieresponse.detail["process-instance"];
+            console.info('Definitions: ',this.processData);
+            console.info('kieresponse: ',kieresponse);
+        }
+
+        _listOf() {
+            if (this.listOf === 'definitions') return true;
+            else return false;
+        }
+        
+        _toggleInfo(e) {
+            var collapseElem = this.shadowRoot.querySelector('#collapse'+e.currentTarget.dataset.index);
+            collapseElem.toggle();
+        }
+    }
+
+    customElements.define(KieProcessesList.is, KieProcessesList);    
+  </script>
+
+</dom-module>
