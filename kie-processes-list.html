@@ -1,13 +1,23 @@
+<!--
+******* Author: Serhii Pahuta
+******* This code is a part of master's thesis: Polymer Elements for a Business Process Management System
+******* 2017 Brno
+-->
+
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../paper-icon-button/paper-icon-button.html">
 <link rel="import" href="../paper-menu-button/paper-menu-button.html">
+<link rel="import" href="../paper-input/paper-input.html">
 <link rel="import" href="../neon-animation/web-animations.html">
-<link rel="import" href="../paper-listbox/paper-listbox.html">
 <link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-dialog/paper-dialog.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
 <link rel="import" href="../iron-icons/iron-icons.html">
 <link rel="import" href="../iron-collapse/iron-collapse.html">
 <link rel="import" href="../app-layout/app-toolbar/app-toolbar.html">
 <link rel="import" href="../kie-server-execute/kie-server-execute.html">
+<link rel="import" href="../kie-form-start-process/kie-form-start-process.html">
 
 
 <dom-module id="kie-processes-list">
@@ -29,10 +39,6 @@
         padding: 0 0 0 16;
       }
 
-      iron-list {
-        margin-top: 5px;
-      }
-
       .col {
           width: 25%;
           padding-left: 3px;
@@ -46,6 +52,7 @@
       .row {
           text-align:justify;
           height: 100px;
+          cursor: pointer;
       }
 
       .row:after {
@@ -76,35 +83,36 @@
 
     </style>
     <kie-server-execute
-      id="getProcessDefinitions"
-      op="queries/processes/definitions"
-      username="spahuta"
-      password="qwe-rty123"
+      id="getProcess"
+      server-url={{serverUrl}}
+      op="queries/processes/[[listOf]]"
+      username="[[user.password]]"
+      password="[[user.userId]]"
       on-kieresponse="_setUpData">
     </kie-server-execute>
+
     <kie-server-execute
-      id="getProcessInstances"
-      op="queries/processes/instances"
-      username="spahuta"
-      password="qwe-rty123"
-      on-kieresponse="_setUpData">
+      id="getVars"
+      server-url={{serverUrl}}
+      op="[[getProcessVarsUrl]]"
+      username="[[user.password]]"
+      password="[[user.userId]]"
+      response="{{procVars}}">
     </kie-server-execute>
 
     <app-toolbar>
-        <paper-menu-button>
-            <paper-icon-button icon="menu" slot="dropdown-trigger"></paper-icon-button>
-            <paper-listbox slot="dropdown-content">
-                <paper-item class="menu_item">Sort</paper-item>
-                <paper-item class="menu_item">Refresh</paper-item>
-            </paper-listbox>
-        </paper-menu-button>
         <div main-title>List of process [[listOf]]</div>        
-        <paper-icon-button icon="refresh"></paper-icon-button>
-        <paper-icon-button icon="search"></paper-icon-button>
+        <iron-collapse id='searchCollapse' horizontal=true>
+            <paper-input id='searchInput' autofocus=true label='Search' value="{{searchStr}}">
+                <iron-icon icon='clear' slot='suffix' on-click='_clearSearch'>
+            </paper-input>
+        </iron-collapse>
+        <paper-icon-button icon="search" on-click='_toggleSearch'></paper-icon-button>
+        <paper-icon-button icon="refresh" on-click='refreshList'></paper-icon-button>
     </app-toolbar>
-
-    <!--<iron-list items="[[processData]]">-->
-        <template is="dom-repeat" items="[[processData]]">
+        
+        <span class="item_desc" hidden='[[!listEmpty]]'>No data</span>
+        <template id='pList' is="dom-repeat" items="[[processData]]" filter="{{_makeFilter(searchStr)}}">
             <div class="wrapper">
                 <div class="row">
 
@@ -158,34 +166,78 @@
                                 [[item.process-id]]
                             </div>
                         </span>
-                        <span class="col_item">
-                            <div class="item_desc">
-                                Details
-                            </div>
-                            <div class="item_val">                        
-                                <paper-icon-button icon="menu"  data-index$="[[index]]" on-click="_toggleInfo"></paper-icon-button>
-                            </div>
-                        </span>
                     </template>
+                    <span class="col_item">
+                        <div class="item_val">                        
+                            <paper-menu-button id$='menu[[index]]' dynamic-align=true>
+                                <paper-icon-button icon="menu" slot="dropdown-trigger"></paper-icon-button>
+                                <div slot="dropdown-content">
+                                    <template is='dom-if' if='[[_listOf()]]'>
+                                        <paper-item data-index$='[[index]]' class="menu_item" on-click='_act'>Start process</paper-item>
+                                    </template>
+                                    <template is='dom-if' if='[[!_listOf()]]'>
+                                        <paper-item data-index$='[[index]]' class="menu_item" on-click='_act'>Abort process instance</paper-item>
+                                    </template>
+                                </div>
+                            </paper-menu-button>
+                            <paper-icon-button icon="arrow-back" data-index$="[[index]]" on-click="_toggleInfo">
+                        </div>
+                    </span>
                 </div>
              
                 <iron-collapse id$="collapse[[index]]">
-                    <div class="detail_info">
-                        <span class="item_desc">Initiator:</span>
-                        <span>[[item.initiator]]</span>
-                    </div>
-                    <div class="detail_info">
-                        <span class="item_desc">Version:</span>
-                        <span>[[item.process-version]]</span>
-                    </div>
+                    <template is="dom-if" if="[[!_listOf()]]">
+                        <div class="detail_info">
+                            <span class="item_desc">Initiator:</span>
+                            <span>[[item.initiator]]</span>
+                        </div>
+                        <div class="detail_info">
+                            <span class="item_desc">Version:</span>
+                            <span>[[item.process-version]]</span>
+                        </div>
+                    </template>
                     <div class="detail_info">
                         <span class="item_desc">Process Variables:</span>
-                        <span>[[item.process-variables]]</span>
+                        <span>
+                            <iron-icon icon="list" style="cursor: help"></iron-icon>
+                            <paper-tooltip>
+                                <template is="dom-if" if='[[_varsExists(item)]]'>No variables</template>
+                                <ul style="margin:0;padding:0">
+                                    <template is="dom-repeat" items="[[item.processVariables]]" as="var">
+                                        <li>[[var.name]] : [[var.value]]</li>
+                                    </template>
+                                </ul>
+                            </paper-tooltip>
+                        </span>
                     </div>
                 </iron-collapse>
+
+                <template is="dom-if" if='[[_listOf()]]'>
+                <paper-dialog id$="dialog[[index]]" modal on-submitted='_closeDialog'>
+                    <kie-form-start-process no-init
+                    id$='getProcessForms[[index]]'
+                    user='[[user]]'
+                    container='[[item.container-id]]'
+                    process-id='[[item.process-id]]'></kie-form-start-process>
+                    <div class="buttons">
+                        <paper-button dialog-dismiss>Cancel</paper-button>
+                    </div>
+                 </paper-dialog>
+                 </template>
+                <template is="dom-if" if='[[!_listOf()]]'>
+                    <kie-server-execute
+                    id$="abortProcessInstance[[index]]"
+                    server-url={{serverUrl}}
+                    op="containers/[[item.container-id]]/processes/instances/[[item.process-instance-id]]"
+                    method="DELETE"
+                    username="spahuta"
+                    password="qwe-rty123"
+                    on-kieresponse="refreshList">
+                    </kie-server-execute>
+                </template>
+
             </div>
         </template>
-    <!--</iron-list>-->
   </template>
 
   <script>
@@ -198,36 +250,31 @@
                     type: String,
                     value: 'definitions'
                 },
+                searchStr: {
+                    type: String
+                },
+                serverUrl: {
+                    type: String
+                },
                 getProcessUrl: {
                     type: String
                 },
-                getProcessVariablesUrl: {
+                getProcessVarsUrl: {
                     type: String
                 },
                 user: {
                     type: Object
                 },
-                initiator: {
-                    type: String
-                },
-                pageSize: {
-                    type: Number,
-                    value: 10
-                },
-                status: {
-                    type: String,
-                    value: "all" // all, active, completed, aborted
-                },
-                autoRefresh: {
-                    type: Boolean,
-                    value: false
-                },
                 processData: {
                     type: Array
                 },
-                dataSource: {
-                    type: Object
-                    //computed: '_setDataSource(processData)',
+                procVars: {
+                    type: Object,
+                    observer: '_varsReady'
+                },
+                listEmpty: {
+                    type: Boolean,
+                    value: true
                 }
             }
         }
@@ -238,18 +285,23 @@
             this._getProcessesData();
         }
 
+        refreshList() {
+            this.set('listEmpty',true);
+            this._getProcessesData();
+        }
+
+        //---- Private methods ----//
+
+
         _getProcessesData() {
-            if (this.listOf === 'definitions')
-                this.$.getProcessDefinitions.execute()
-            else
-                this.$.getProcessInstances.execute();
+            this.$.getProcess.execute();
         }
 
         _setUpData(kieresponse) {
             if (this.listOf === 'definitions') this.processData = kieresponse.detail.processes
-            else this.processData = kieresponse.detail["process-instance"];
-            console.info('Definitions: ',this.processData);
-            console.info('kieresponse: ',kieresponse);
+            else this.processData = kieresponse.detail["process-instance"];    
+            if(this.processData.length > 0) this.set('listEmpty',false);       
+            this.$.pList.render();
         }
 
         _listOf() {
@@ -260,7 +312,125 @@
         _toggleInfo(e) {
             var collapseElem = this.shadowRoot.querySelector('#collapse'+e.currentTarget.dataset.index);
             collapseElem.toggle();
+
+            if (collapseElem.opened) {
+                e.currentTarget.icon = 'arrow-downward';
+                this._fetchVars(e.currentTarget.dataset.index);
+            }
+            else e.currentTarget.icon = 'arrow-back';
+
+            
         }
+
+        _fetchVars(index) {
+            let pId = this._listOf() ? this.processData[index]["process-id"] : this.processData[index]["process-instance-id"];
+            let container = this.processData[index]['container-id'];
+            if (this._listOf()) this.getProcessVarsUrl = `containers/${container}/processes/definitions/${pId}`
+            else this.getProcessVarsUrl = `queries/processes/instances/${pId}/variables/instances`;
+            this.$.getVars.execute();
+        }
+
+        _varsReady(newValue) {
+            let procArr = JSON.parse(JSON.stringify(this.processData));
+            if (this._listOf()) {
+                for (let i=0;i<procArr.length;i++) {
+                    let varId = this.procVars["process-id"];
+                    let pId = procArr[i]["process-id"];
+                    if (varId == pId) {
+                        procArr[i] = this.procVars;
+                        procArr[i]["processVariables"] = this._toArray(procArr[i]["processVariables"]);
+                        break;
+                    }
+                }
+            } else {
+                if(this.procVars["variable-instance"].length > 0)
+                    for (let i=0;i<procArr.length;i++) {
+                        let varId = this.procVars["variable-instance"][0]["process-instance-id"];
+                        let pId = procArr[i]["process-instance-id"];
+                        if (varId == pId) {
+                            let reformattedVars = this.procVars["variable-instance"].map((item)=>{
+                                return {
+                                    name: item.name,
+                                    value: item.value
+                                }
+                            });
+                            procArr[i]["processVariables"] = reformattedVars;
+                        }
+                    }
+            }
+            
+            this.set('processData',procArr);
+            this.$.pList.render();
+        }
+
+        _toArray(obj) {
+            if (obj)
+            return Object.keys(obj).map(function(key) {
+                return {
+                    name: key,
+                    value: obj[key]
+                };
+            });
+        }
+
+        _varsExists(proc) {
+            if (proc.processVariables && (proc.processVariables !== null) && (proc.processVariables.length > 0))
+                return false;
+            else return true;
+        }
+
+        _toggleSearch(){
+            this.$.searchCollapse.toggle();
+        }
+
+        _makeFilter(str){
+            if (!str) return null;
+            else {
+                let q = str.toLowerCase();
+                return (proc) => {
+                    let pId = this._listOf() ? proc["process-id"] : `${proc["process-instance-id"]}`;
+                    pId = pId.toLowerCase();
+                    let pName = proc['process-name'].toLowerCase();
+                    return (pId.indexOf(q) != -1 || pName.indexOf(q) != -1);
+                }
+            }
+        }
+
+        _clearSearch() {
+            this.searchStr = '';
+        }
+
+        _act(e) {
+            var procIndex = e.currentTarget.dataset.index;
+            var menuElem = this.shadowRoot.querySelector('#menu'+procIndex);
+            menuElem.close();
+            if (this._listOf()) {
+                this.shadowRoot.querySelector(`#getProcessForms${procIndex}`).fetchProcessForms();
+                this._openProcStartForm(procIndex);
+            }   
+            else {
+                this._openProcAbortForm(procIndex);
+            }
+        }
+
+        _openProcStartForm(index) {
+            var dialogElem = this.shadowRoot.querySelector('#dialog'+index);
+            dialogElem.open();
+        }
+
+        _openProcAbortForm(index) {
+            var abort = confirm(`Abort ${this.processData[index]['process-name']} instance?`);
+            if (abort) {
+                this.shadowRoot.querySelector(`#abortProcessInstance${index}`).execute();
+                this.refreshList();
+                this.dispatchEvent(new CustomEvent('aborted',{detail: {"process-name": this.processData[index]['process-name']}}));
+            }
+        }
+
+        _closeDialog(e) {
+            e.currentTarget.close();
+        }
+
     }
 
     customElements.define(KieProcessesList.is, KieProcessesList);    
