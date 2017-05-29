@@ -47,6 +47,7 @@
       .col_item {
           display: inline-block;
           padding: 10px 20px 0 10px;
+          vertical-align: top;
       }
 
       .row {
@@ -69,6 +70,7 @@
       .item_val {
           font-size: 23px;
           margin: 15px 0 0 0;
+          width: 200px;
       }
       
       .wrapper {
@@ -79,6 +81,10 @@
       .detail_info {
           padding: 0 30px 5px 10px;
           display: inline-block;
+      }
+
+      .button_section {
+          text-align: right;
       }
 
     </style>
@@ -167,7 +173,7 @@
                             </div>
                         </span>
                     </template>
-                    <span class="col_item">
+                    <span class="col_item button_section">
                         <div class="item_val">                        
                             <paper-menu-button id$='menu[[index]]' dynamic-align=true>
                                 <paper-icon-button icon="menu" slot="dropdown-trigger"></paper-icon-button>
