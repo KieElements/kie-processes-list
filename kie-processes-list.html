@@ -406,13 +406,25 @@
             this.searchStr = '';
         }
 
+        _fetchProcessForms(index) {
+            var self = this;
+            return new Promise((resolve, reject)=>{
+                self.shadowRoot.querySelector(`#getProcessForms${index}`).fetchProcessForms();
+                setTimeout(()=>{
+                    resolve();
+                },60);
+            });
+        }
+
         _act(e) {
             var procIndex = e.currentTarget.dataset.index;
             var menuElem = this.shadowRoot.querySelector('#menu'+procIndex);
             menuElem.close();
             if (this._listOf()) {
-                this.shadowRoot.querySelector(`#getProcessForms${procIndex}`).fetchProcessForms();
-                this._openProcStartForm(procIndex);
+                this._fetchProcessForms(procIndex)
+                .then(()=>{
+                    this._openProcStartForm(procIndex);
+                });
             }   
             else {
                 this._openProcAbortForm(procIndex);
